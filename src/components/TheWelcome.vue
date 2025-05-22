@@ -2,6 +2,15 @@
   <div class="scene-container" ref="container">
     <div id="card" class="card"></div>
   </div>
+  <div style="background-color:#ccc;position:fixed;z-index: 99;height:100px;width:200px;right:0;top:0;display: flex">
+    <button @click="handleAnimate('head')">脑子</button>
+    <button @click="handleAnimate('Lungs')">肺部</button>
+    <button @click="handleAnimate('heart')">心脏</button>
+    <button @click="handleAnimate('stomach')">肠胃</button>
+    <button @click="handleAnimate('Pancreas')">胰脏</button>
+    <button @click="resetView">复原</button>
+
+  </div>
 </template>
 <script setup lang="ts">
 import {Layers,Scene, Color,Line, PerspectiveCamera, Mesh, Clock,DoubleSide,
@@ -15,11 +24,11 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
-import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
+import TWEEN from '@tweenjs/tween.js'
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader.js'
 
-import {onBeforeUnmount, onMounted, ref} from 'vue'
+import {nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
 
 let scene: Scene
 let sceneOrgan:Scene
@@ -62,7 +71,6 @@ const addLight=()=>{
   //添加环境光
   scene.add(new AmbientLight(0xffffff, 0.6))
   sceneOrgan.add(new AmbientLight(0xffffff, 0.6))
-
   //添加平行光
   const sunLight = new DirectionalLight(0xffffff, 3)
   sunLight.position.set(20, 20, 20)
@@ -89,19 +97,26 @@ const initOutLinePass = () => {
   //效果合成器
   composer = new EffectComposer(renderer)
   const renderPass=new RenderPass(scene, camera)
-  renderPass.clearDepth=false
   composer.addPass(renderPass)
-  const v2 = new Vector2(containerH.value, containerW.value)
-  outlinePass = new OutlinePass(v2, scene, camera)
-  outlinePass.visibleEdgeColor.set(0xff0000)
-  outlinePass.edgeThickness = 4
-  outlinePass.edgeStrength = 6
-  outlinePass.edgeGlow = 0
-  outlinePass.renderToScreen = true
-  composer.addPass(outlinePass)
   // 创建伽马校正通道
   const gammaPass = new ShaderPass(GammaCorrectionShader)
   composer.addPass(gammaPass)
+  const v2 = new Vector2(containerH.value, containerW.value)
+  outlinePass = new OutlinePass(v2, scene, camera)
+  outlinePass.visibleEdgeColor.set(0xff0000)//设置模型边缘在“可见”情况下的描边颜色。
+  outlinePass.edgeThickness = 2 //描边的“粗细”
+  outlinePass.edgeStrength = 1.5 //描边的“强度/亮度”
+  outlinePass.pulsePeriod=1.3 //脉冲效果
+  outlinePass.edgeGlow = 1.5//外发光
+  //设置描边效果使用的渲染分辨率。默认为2，表示使用 主渲染分辨率的 1/2 进行渲染。
+  //值越大 → 性能更好，但描边会模糊或失真。
+  //值越小（如 1）→ 效果更清晰，但性能开销更大。
+  outlinePass.downSampleRatio=2
+  outlinePass.hiddenEdgeColor.set(0xff0000)
+  //在 three.js 的后处理流程中（基于 EffectComposer），多个后处理步骤（Pass）是串联执行的。
+  //每个 Pass 的输出通常是写入一个 Framebuffer（即离屏渲染），只有最后一个 Pass 需要 renderToScreen = true，才能把最终结果显示在屏幕上。
+  outlinePass.renderToScreen = true
+  composer.addPass(outlinePass)
 }
 
 const listenerCallBack = () => {
@@ -152,7 +167,7 @@ const setCard = (position:Vector3,name:string,data:any) => {
   card.style.background = 'url(card-body.png) no-repeat center center / 100% 100%'
   noticeCard.value=new CSS2DObject(card)
   scene.add(noticeCard.value)
-  noticeCard.value.position.set(position.x+1,position.y,position.z)
+  noticeCard.value.position.set(position.x,position.y,position.z)
   // 创建连线
   const points = [position, noticeCard.value.position.clone()]
   const geometry = new BufferGeometry().setFromPoints(points)
@@ -235,15 +250,11 @@ const loadModels = () => {
     organModel.scale.set(0.32, 0.32, 0.32)
     organModel.traverse((item) => {
       if (item.isMesh) {
-        if(item.material){
-          item.material.transparent=true
-          item.material.opacity=.8
-        }
         item.scale.set(0.32, 0.32, 0.32)
         rayCasterMeshes.push(item)
       }
     })
-    handleRayCaster()
+    // handleRayCaster()
   })
 
   //光环
@@ -266,48 +277,89 @@ const loadModels = () => {
   initOutLinePass()
 }
 
+
+//复原视角
+const resetView=()=>{
+  outlinePass.selectedObjects=[]
+  noticeCard.value && scene.remove(noticeCard.value)
+  animateCamera(new Vector3(0, 2.5, 5));control.target.set(0, 2, 0)
+}
+
+const positionMap={
+  head:{position:new Vector3(0,3,3),name:'Icosphere'},
+  Lungs:{position:new Vector3(0,2.5,3),name:'Linkerlong_Linkerlong_0'},
+  heart:{position:new Vector3(0,2,3),name:'Heart'},
+  Liver:{position:new Vector3(0,1.7,3),name:'gangzhan'},
+  stomach:{position:new Vector3(0,1.5,3),name:'stomach'},
+  Pancreas:{position:new Vector3(0,1.5,3),name:'Spleen_Milt'},
+
+}
+const handleAnimate=(key:keyof typeof positionMap)=>{
+  resetView()
+  nextTick(()=>{
+    const item=positionMap[key]
+    const p=item.position.clone()
+
+    control.target.set(0,p.y,0)
+    animateCamera(p.clone())
+    let obj
+    outlinePass.selectedObjects = rayCasterMeshes.filter(item=>{
+          if(item.name===positionMap[key].name){
+            obj=item
+            return item
+          }
+      }
+    )
+    setCard(new Vector3(0.15,p.y,p.z-0.5), '测试设备', obj)
+  })
+}
+
+
 //射线检测
 let rayCaster: Raycaster
 let mouse: Vector2
-let oldObj:any
-const rayCasterMeshes: Mesh = []
-const rayCasterEvent = throttle((event: MouseEvent) => {
-  const { left, top, width, height } = rect
-  mouse.x = ((event.clientX - left) / width) * 2 - 1
-  mouse.y = -((event.clientY - top) / height) * 2 + 1
-  rayCaster.setFromCamera(mouse, camera)
-  const intersects = rayCaster.intersectObjects(rayCasterMeshes, true)
-  if (intersects.length > 0) {
-    const obj = intersects[0].object
-    const intersectPoint= intersects[0].point
-    oldObj=obj
-    outlinePass.selectedObjects = [obj]
-    setCard(new Vector3(intersectPoint.x, intersectPoint.y, intersectPoint.z), '测试设备', obj)
-  }else{
-    oldObj=null
-    outlinePass.selectedObjects = []
-    noticeCard.value && scene.remove(noticeCard.value)
-    line && scene.remove(line)
-  }
-}, 100)
-const handleRayCaster = () => {
-  rayCaster = new Raycaster()
-  mouse = new Vector2()
-  const domElement = renderer.domElement
-  domElement.addEventListener('mousemove', rayCasterEvent)
+const rayCasterMeshes: Mesh[] = []
+// const rayCasterEvent = throttle((event: MouseEvent) => {
+//   const { left, top, width, height } = rect
+//   mouse.x = ((event.clientX - left) / width) * 2 - 1
+//   mouse.y = -((event.clientY - top) / height) * 2 + 1
+//   rayCaster.setFromCamera(mouse, camera)
+//   const intersects = rayCaster.intersectObjects(rayCasterMeshes, true)
+//   if (intersects.length > 0) {
+//     const obj = intersects[0].object
+//     const intersectPoint= intersects[0].point
+//     outlinePass.selectedObjects = [obj]
+//     setCard(new Vector3(intersectPoint.x, intersectPoint.y, intersectPoint.z), '测试设备', obj)
+//   }else{
+//     outlinePass.selectedObjects = []
+//     noticeCard.value && scene.remove(noticeCard.value)
+//     line && scene.remove(line)
+//   }
+// }, 100)
+// const handleRayCaster = () => {
+//   rayCaster = new Raycaster()
+//   mouse = new Vector2()
+//   const domElement = renderer.domElement
+//   domElement.addEventListener('mousemove', rayCasterEvent)
+// }
+
+
+const animateCamera=(position:Vector3)=>{
+  new TWEEN.Tween(camera.position)
+      .to(position, 2000)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .start()
 }
 
 const renderId = ref()
 const clock = new Clock()
 const renderFn = () => {
+  TWEEN.update()
   control.update()
+  //传递uniform变量到着色器材质
   const elapsed = clock.getElapsedTime()
   ringMaterial.uniforms.u_time.value = elapsed
-
-  // renderer.render(scene, camera);
-
   composer.render();
-
   css3DRenderer.render(scene, camera);
   renderId.value = requestAnimationFrame(renderFn);
 }
@@ -325,7 +377,7 @@ onBeforeUnmount(()=>{
   outlinePass.dispose()
   container.value?.removeChild(renderer.domElement)
   window.removeEventListener('resize', listenerCallBack)
-  window.removeEventListener('mousemove', rayCasterEvent)
+  // window.removeEventListener('mousemove', rayCasterEvent)
   document.getElementById('card')?.removeChild(css3DRenderer.domElement)
 })
 </script>
@@ -347,6 +399,7 @@ onBeforeUnmount(()=>{
   border: 2px solid rgba(255,0,0,.5);
   animation: pulse-border 1s infinite;
   box-sizing: border-box;
+  border-radius: 5px;
   font-size: 16px;
   pointer-events: none;
 }
