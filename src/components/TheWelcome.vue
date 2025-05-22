@@ -4,7 +4,10 @@
   </div>
 </template>
 <script setup lang="ts">
-import {Layers,Scene, Color,AdditiveBlending, PerspectiveCamera, Mesh, MeshBasicMaterial, AxesHelper, GridHelper, AmbientLight, DirectionalLight, WebGLRenderer, PCFSoftShadowMap, Camera, Vector2, MeshStandardMaterial, Raycaster, Object3D, Vector3,} from 'three'
+import {Layers,Scene, Color,Line, PerspectiveCamera, Mesh, Clock,DoubleSide,
+  BufferGeometry,BufferAttribute, AxesHelper,LineBasicMaterial, ShaderMaterial, AmbientLight, DirectionalLight,
+  WebGLRenderer, PCFSoftShadowMap, Camera, Vector2, MeshStandardMaterial, Raycaster, Object3D, Vector3
+} from 'three'
 import { throttle } from 'lodash'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
@@ -26,7 +29,7 @@ let renderer: WebGLRenderer
 const initScene = () => {
   scene = new Scene()
   sceneOrgan=new Scene()
-  scene.background = new Color(0x444444)
+  scene.background = new Color(0x333333)
   camera = new PerspectiveCamera(45, containerW.value / containerH.value, 0.1, 1000)
   camera.position.set(0, 2.5, 5)
   scene.add(camera)
@@ -85,14 +88,12 @@ let outlinePass: OutlinePass
 const initOutLinePass = () => {
   //效果合成器
   composer = new EffectComposer(renderer)
-  const renderPass=new RenderPass(sceneOrgan, camera)
-  const bodyPass=new RenderPass(scene, camera)
-  bodyPass.clearDepth =false//保留深度
+  const renderPass=new RenderPass(scene, camera)
+  renderPass.clearDepth=false
   composer.addPass(renderPass)
-  composer.addPass(bodyPass)
   const v2 = new Vector2(containerH.value, containerW.value)
-  outlinePass = new OutlinePass(v2, sceneOrgan, camera)
-  outlinePass.visibleEdgeColor.set(0x00ffff)
+  outlinePass = new OutlinePass(v2, scene, camera)
+  outlinePass.visibleEdgeColor.set(0xff0000)
   outlinePass.edgeThickness = 4
   outlinePass.edgeStrength = 6
   outlinePass.edgeGlow = 0
@@ -101,9 +102,6 @@ const initOutLinePass = () => {
   // 创建伽马校正通道
   const gammaPass = new ShaderPass(GammaCorrectionShader)
   composer.addPass(gammaPass)
-  // const pixelRatio = renderer.getPixelRatio()
-  // const smaaPass = new SMAAPass(containerW.value * pixelRatio, containerH.value * pixelRatio)
-  // composer.addPass(smaaPass)
 }
 
 const listenerCallBack = () => {
@@ -136,79 +134,142 @@ const initContainer = () => {
 
 //通知卡片
 const noticeCard = ref()
+let line:Line
 const setCard = (position:Vector3,name:string,data:any) => {
   noticeCard.value && scene.remove(noticeCard.value)
+  line && scene.remove(line)
   const card = document.createElement('div')
   card.innerHTML = `
        <div style="position:absolute;left:0;padding:10px">
-          <div>模型id：${data?.uuid}</div>
-          <div>设备：${name}</div>
+          <div style="color:#fff">模型id：${data?.uuid}</div>
+          <div style="color:#fff">设备：${name}</div>
           <div style="color:red">状态：告警中</div>
        </div>
       `
-  card.style.fontSize = '16px'
   card.style.width = '300px'
-  // card.style.padding = '1px'
   card.style.height = '180px'
-  card.style.pointerEvents = 'none'
+  card.classList.add('warning')
   card.style.background = 'url(card-body.png) no-repeat center center / 100% 100%'
   noticeCard.value=new CSS2DObject(card)
   scene.add(noticeCard.value)
-  noticeCard.value.position.set(-2,2,0);
+  noticeCard.value.position.set(position.x+1,position.y,position.z)
+  // 创建连线
+  const points = [position, noticeCard.value.position.clone()]
+  const geometry = new BufferGeometry().setFromPoints(points)
+  const material = new LineBasicMaterial({
+    color: 0xff0000,
+    linewidth: 50,
+    linecap: 'round',
+    linejoin:  'round'
+  })
+  line = new Line(geometry, material)
+  scene.add(line)
+
 }
 
 
 
 const modelLoader = new GLTFLoader()
+let ringMaterial:ShaderMaterial = new ShaderMaterial({
+  uniforms: {
+    u_time: { value: 0 },
+    u_color1: { value: new Color('#04202f') },
+    u_color2: { value: new Color('#031e31') },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    varying vec3 vPosition;
+    void main() {
+      vUv = uv;
+      vPosition = position;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform float u_time;
+    uniform vec3 u_color1;
+    uniform vec3 u_color2;
+    varying vec2 vUv;
+    varying vec3 vPosition;
+    void main() {
+      float r = length(vPosition.xz);
+      float alpha = 0.6 + 0.4 * sin(u_time * 2.0 + r * 10.0); // 动态闪烁
+      float t = smoothstep(0.0, 0.5, r); // 控制渐变半径
+      float s = sin(u_time); // -1 ~ 1
+      vec3 color = mix(u_color1, u_color2, s*0.5+0.5); // 中心红，外圈蓝
+      gl_FragColor = vec4(color, alpha);
+    }
+  `,
+  transparent: true,
+  side: DoubleSide,
+  depthWrite: false,
+})
 //模型加载
 const loadModels = () => {
-
-  // 加载器官模型
-  modelLoader.load('/models/InternalOrgans.glb', (glb) => {
-    const organModel = glb.scene
-    sceneOrgan.add(organModel)
-    organModel.scale.set(0.3201, 0.3201, 0.3201)
-    organModel.traverse((item) => {
-      if (item.isMesh) {
-        if(item.material){
-          item.material.transparent=true
-          item.material.depthTest=true
-          item.material.opacity=.8
-        }
-        item.scale.set(0.3208, 0.3208, 0.3208)
-        rayCasterMeshes.push(item)
-      }
-    })
-    handleRayCaster()
-  })
-
   // 加载人体模型
   modelLoader.load('/models/man2.glb', (glb) => {
     const model = glb.scene
     scene.add(model)
-    // 创建透明材质
     const bodyMaterial = new MeshStandardMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.1,
-      depthWrite: false,  // 启用深度写入
-      depthTest: false ,  // 启用深度测试
+      opacity: 0.2,
+      depthWrite: false,
+      depthTest: false ,
     })
     // 设置人体模型的每个 Mesh
     model.traverse((item) => {
       if (item.isMesh) {
         item.material = bodyMaterial
         item.rotation.x = (90 * Math.PI) / 180
+        // item.translateZ(-6)
         item.material = bodyMaterial
       }
     })
   })
+
+  // 加载器官模型
+  modelLoader.load('/models/InternalOrgans.glb', (glb) => {
+    const organModel = glb.scene
+    scene.add(organModel)
+    organModel.scale.set(0.32, 0.32, 0.32)
+    organModel.traverse((item) => {
+      if (item.isMesh) {
+        if(item.material){
+          item.material.transparent=true
+          item.material.opacity=.8
+        }
+        item.scale.set(0.32, 0.32, 0.32)
+        rayCasterMeshes.push(item)
+      }
+    })
+    handleRayCaster()
+  })
+
+  //光环
+  modelLoader.load('/models/range.glb', (glb) => {
+    const model = glb.scene
+    scene.add(model)
+    model.scale.set(4,4,4)
+    model.rotation.x = (150 * Math.PI) / 180
+    model.material=ringMaterial
+    model.traverse((item) => {
+      if (item.isMesh) {
+        item.rotateY(Math.PI*90/180)
+        item.rotateX(Math.PI*180/180)
+        item.material = ringMaterial
+      }
+    })
+    model.translateY(-1.2)
+  })
+
   initOutLinePass()
 }
 
 //射线检测
 let rayCaster: Raycaster
 let mouse: Vector2
+let oldObj:any
 const rayCasterMeshes: Mesh = []
 const rayCasterEvent = throttle((event: MouseEvent) => {
   const { left, top, width, height } = rect
@@ -218,13 +279,17 @@ const rayCasterEvent = throttle((event: MouseEvent) => {
   const intersects = rayCaster.intersectObjects(rayCasterMeshes, true)
   if (intersects.length > 0) {
     const obj = intersects[0].object
+    const intersectPoint= intersects[0].point
+    oldObj=obj
     outlinePass.selectedObjects = [obj]
-    setCard(new Vector3(obj.position.x, obj.position.y, obj.position.z), '测试设备', obj)
-
+    setCard(new Vector3(intersectPoint.x, intersectPoint.y, intersectPoint.z), '测试设备', obj)
   }else{
+    oldObj=null
     outlinePass.selectedObjects = []
+    noticeCard.value && scene.remove(noticeCard.value)
+    line && scene.remove(line)
   }
-}, 0)
+}, 100)
 const handleRayCaster = () => {
   rayCaster = new Raycaster()
   mouse = new Vector2()
@@ -233,18 +298,15 @@ const handleRayCaster = () => {
 }
 
 const renderId = ref()
+const clock = new Clock()
 const renderFn = () => {
-
   control.update()
-  renderer.render(scene, camera);
-  renderer.clearDepth();
+  const elapsed = clock.getElapsedTime()
+  ringMaterial.uniforms.u_time.value = elapsed
 
+  // renderer.render(scene, camera);
 
-  // 2. 渲染器官场景（不透明）
-  composer.render()
-
-
-  renderer.render(sceneOrgan, camera);
+  composer.render();
 
   css3DRenderer.render(scene, camera);
   renderId.value = requestAnimationFrame(renderFn);
@@ -272,6 +334,7 @@ onBeforeUnmount(()=>{
   width: 100vw;
   height: 100vh;
   position:relative;
+  overflow: hidden;
 }
 .card{
   position:absolute;
@@ -279,5 +342,26 @@ onBeforeUnmount(()=>{
   height:100%;
   z-index:10;
   pointer-events: none;
+}
+.warning{
+  border: 2px solid rgba(255,0,0,.5);
+  animation: pulse-border 1s infinite;
+  box-sizing: border-box;
+  font-size: 16px;
+  pointer-events: none;
+}
+@keyframes pulse-border {
+  0% {
+    box-shadow: 0 0 5px rgba(255,0,0,.5);
+    border-color: red;
+  }
+  50% {
+    box-shadow: 0 0 20px red;
+    border-color: darkred;
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(255,0,0,.5);
+    border-color: rgba(255,0,0,.5);
+  }
 }
 </style>
