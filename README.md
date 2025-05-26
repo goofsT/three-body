@@ -10,8 +10,8 @@ threejs基础场景效果
 - 模型部位交互
 
 ## 效果图
-![img](./public/images/img.png)
-
+![img.png](./public/images/img_1.png)
+![img.png](./public/images/img_2.png)
 ```sh
 npm install
 ```
