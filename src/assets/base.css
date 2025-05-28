@@ -1,4 +1,3 @@
-
 :root {
   --vt-c-white: #ffffff;
   --vt-c-white-soft: #f8f8f8;
@@ -59,6 +58,7 @@
 }
 
 body {
+  -webkit-app-region: drag;
   min-height: 100vh;
   color: var(--color-text);
   background: var(--color-background);

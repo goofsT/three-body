@@ -1,16 +1,17 @@
 <template>
   <div class="scene-container" ref="container">
-<!--    <div id="card" class="card"></div>-->
+    <!--    <div id="card" class="card"></div>-->
     <div v-if="showCard" class="domCard">
-      <div style="color:#fff">床位号：{{data?.bedNumber}}</div>
-      <div style="color:#fff">设备名称：{{data?.deviceName}}</div>
-      <div style="color:red">心率告警：{{data?.heartRate}} bpm（{{data?.heartRateStatus}}）</div>
-      <div style="color:red">血压告警：{{data?.bloodPressure}} mmHg（{{data?.bpStatus}}）</div>
-      <div style="color:red">血氧告警：{{data?.spo2 + '%（'+data?.spo2Status}}）</div>
-      <div style="color:red">呼吸率告警：{{data?.respRate}} 次/分（{{data?.respStatus}}）</div>
-      <div style="color:#ffcc00">状态：{{data?.alarmLevel === 'high' ? '高级告警' : '普通告警'}}</div>
+      <div style="color:#fff">床位号：{{ data?.bedNumber }}</div>
+      <div style="color:#fff">设备名称：{{ data?.deviceName }}</div>
+      <div style="color:red">心率告警：{{ data?.heartRate }} bpm（{{ data?.heartRateStatus }}）</div>
+      <div style="color:red">血压告警：{{ data?.bloodPressure }} mmHg（{{ data?.bpStatus }}）</div>
+      <div style="color:red">血氧告警：{{ data?.spo2 + '%（' + data?.spo2Status }}）</div>
+      <div style="color:red">呼吸率告警：{{ data?.respRate }} 次/分（{{ data?.respStatus }}）</div>
+      <div style="color:#ffcc00">状态：{{ data?.alarmLevel === 'high' ? '高级告警' : '普通告警' }}</div>
     </div>
-    <div class="flex flex-col" style="background-color:#ccc;position:absolute;z-index: 99;height:100px;width:100px;right:0;top:0">
+    <div class="flex flex-col"
+      style="background-color:#ccc;position:absolute;z-index: 99;height:100px;width:100px;right:0;top:0">
       <button @click="handleAnimate('head')">大脑</button>
       <button @click="handleAnimate('Lungs')">肺部</button>
       <button @click="handleAnimate('heart')">心脏</button>
@@ -21,11 +22,11 @@
   </div>
 </template>
 <script setup lang="ts">
-import {Layers,Scene, Color,Line, PerspectiveCamera, Mesh, Clock,DoubleSide,LinearFilter,PlaneGeometry,MeshBasicMaterial,
-  BufferGeometry,BufferAttribute, AxesHelper,LineBasicMaterial, ShaderMaterial, AmbientLight, DirectionalLight,
-  WebGLRenderer, PCFSoftShadowMap, Camera, Vector2, MeshStandardMaterial, Raycaster, TextureLoader, Vector3,EdgesGeometry,LineSegments,CylinderGeometry,Group
+import {
+  Layers, Scene, Color, Line, PerspectiveCamera, Mesh, Clock, DoubleSide, LinearFilter, PlaneGeometry, MeshBasicMaterial,
+  BufferGeometry, BufferAttribute, AxesHelper, LineBasicMaterial, ShaderMaterial, AmbientLight, DirectionalLight,
+  WebGLRenderer, PCFSoftShadowMap, Camera, Vector2, MeshStandardMaterial, Raycaster, TextureLoader, Vector3, EdgesGeometry, LineSegments, CylinderGeometry, Group
 } from 'three'
-import { throttle } from 'lodash'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
@@ -35,10 +36,10 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import TWEEN from '@tweenjs/tween.js'
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader.js'
-import {ringMaterial,bodyMaterial,bodyLineMaterial,scanMaterial} from '@/material/material'
-import {nextTick, onBeforeUnmount, onMounted, ref} from 'vue'
+import { ringMaterial, bodyMaterial, bodyLineMaterial, scanMaterial } from '@/material/material'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
-const showCard=ref(false)
+const showCard = ref(false)
 const data = ref({
   patientId: 'P123456',
   bedNumber: '12A',
@@ -62,14 +63,14 @@ let scene: Scene
 let camera: Camera
 let control: OrbitControls
 let renderer: WebGLRenderer
-const cameraPosition={
-  x:0,y:-3,z:2
+const cameraPosition = {
+  x: 0, y: -3, z: 2
 }
 const initScene = () => {
   scene = new Scene()
   // scene.background = new Color(0x111111)
   camera = new PerspectiveCamera(45, containerW.value / containerH.value, 0.1, 10)
-  camera.position.set(cameraPosition.x,cameraPosition.y,cameraPosition.z)
+  camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z)
   scene.add(camera)
   // const axesHelper = new AxesHelper(50)
   // scene.add(axesHelper)
@@ -95,7 +96,7 @@ const initScene = () => {
   window.addEventListener('resize', listenerCallBack)
 }
 
-const addLight=()=>{
+const addLight = () => {
   //添加环境光
   scene.add(new AmbientLight(0xffffff, 0.6))
   //添加平行光
@@ -110,8 +111,8 @@ const addLight=()=>{
   sunLight.shadow.camera.right = 50
   sunLight.shadow.camera.top = 50
   sunLight.shadow.camera.bottom = -50
-  const sunLight1=sunLight.clone()
-  sunLight1.position.set(-20,-20,-20)
+  const sunLight1 = sunLight.clone()
+  sunLight1.position.set(-20, -20, -20)
   scene.add(sunLight)
   scene.add(sunLight1)
 }
@@ -121,7 +122,7 @@ let outlinePass: OutlinePass
 const initOutLinePass = () => {
   //效果合成器
   composer = new EffectComposer(renderer)
-  const renderPass=new RenderPass(scene, camera)
+  const renderPass = new RenderPass(scene, camera)
   composer.addPass(renderPass)
   // 创建伽马校正通道
   const gammaPass = new ShaderPass(GammaCorrectionShader)
@@ -131,12 +132,12 @@ const initOutLinePass = () => {
   outlinePass.visibleEdgeColor.set(0xff0000)//设置模型边缘在“可见”情况下的描边颜色。
   outlinePass.edgeThickness = 5 //描边的“粗细”
   outlinePass.edgeStrength = 1.5 //描边的“强度/亮度”
-  outlinePass.pulsePeriod=1.3 //脉冲效果
+  outlinePass.pulsePeriod = 1.3 //脉冲效果
   outlinePass.edgeGlow = 5//外发光
   //设置描边效果使用的渲染分辨率。默认为2，表示使用 主渲染分辨率的 1/2 进行渲染。
   //值越大 → 性能更好，但描边会模糊或失真。
   //值越小（如 1）→ 效果更清晰，但性能开销更大。
-  outlinePass.downSampleRatio=2
+  outlinePass.downSampleRatio = 2
   outlinePass.hiddenEdgeColor.set(0xff0000)
   //在 three.js 的后处理流程中（基于 EffectComposer），多个后处理步骤（Pass）是串联执行的。
   //每个 Pass 的输出通常是写入一个 Framebuffer（即离屏渲染），只有最后一个 Pass 需要 renderToScreen = true，才能把最终结果显示在屏幕上。
@@ -145,6 +146,8 @@ const initOutLinePass = () => {
 }
 
 const listenerCallBack = () => {
+  console.log(111);
+
   initContainer()
   camera.aspect = containerW.value / containerH.value
   camera.updateProjectionMatrix()
@@ -174,8 +177,8 @@ const initContainer = () => {
 
 //通知卡片
 const noticeCard = ref()
-let line:Line
-const setCard = (position:Vector3,name:string,data:any) => {
+let line: Line
+const setCard = (position: Vector3, name: string, data: any) => {
   noticeCard.value && scene.remove(noticeCard.value)
   line && scene.remove(line)
   const card = document.createElement('div')
@@ -197,9 +200,9 @@ const setCard = (position:Vector3,name:string,data:any) => {
   card.style.height = '180px'
   card.classList.add('warning')
   card.style.background = 'url(card-body.png) no-repeat center center / 100% 100%'
-  noticeCard.value=new CSS2DObject(card)
+  noticeCard.value = new CSS2DObject(card)
   scene.add(noticeCard.value)
-  noticeCard.value.position.set(position.x,position.y,position.z)
+  noticeCard.value.position.set(position.x, position.y, position.z)
   // 创建连线
   const points = [position, noticeCard.value.position.clone()]
   const geometry = new BufferGeometry().setFromPoints(points)
@@ -207,7 +210,7 @@ const setCard = (position:Vector3,name:string,data:any) => {
     color: 0xff0000,
     linewidth: 50,
     linecap: 'round',
-    linejoin:  'round'
+    linejoin: 'round'
   })
   line = new Line(geometry, material)
   scene.add(line)
@@ -218,36 +221,36 @@ const setCard = (position:Vector3,name:string,data:any) => {
 let scanY = -1;
 let direction = 1; // 1 向上，-1 向下
 const speed = 0.02;
-let scanPlane:Mesh
-const showScanLine=ref(true)
-const initScanLine=()=>{
+let scanPlane: Mesh
+const showScanLine = ref(true)
+const initScanLine = () => {
   scanPlane = new Mesh(new PlaneGeometry(8, .03), scanMaterial)
-  scanPlane.rotation.x = -(Math.PI * 180)/ 180
-  scanPlane.position.set(0,scanY,0)
+  scanPlane.rotation.x = -(Math.PI * 180) / 180
+  scanPlane.position.set(0, scanY, 0)
   scene.add(scanPlane)
 }
-const updateLine=()=>{
-  if(!showScanLine.value)return
+const updateLine = () => {
+  if (!showScanLine.value) return
   // 来回扫描
   scanY += speed * direction;
   if (scanY >= 3.5 || scanY <= -1) {
     direction *= -1; // 反向
   }
-  if(scanPlane){
-    scanPlane.position.set(0,scanY,0)
+  if (scanPlane) {
+    scanPlane.position.set(0, scanY, 0)
   }
   scanMaterial.uniforms.uScanY.value = scanY;
 }
 
-const pauseScanLine=()=>{
-  showScanLine.value=false//扫描线
-  scanPlane.position.set(0,-1,0)
+const pauseScanLine = () => {
+  showScanLine.value = false//扫描线
+  scanPlane.position.set(0, -1, 0)
 }
 
 
 //模型加载
 const modelLoader = new GLTFLoader()
-const group=new Group()
+const group = new Group()
 const loadModels = () => {
   // 加载人体模型
   modelLoader.load('/models/man2.glb', (glb) => {
@@ -256,15 +259,15 @@ const loadModels = () => {
     // 设置人体模型的每个 Mesh
     model.traverse((item) => {
       if (item.isMesh) {
-        item.material =bodyLineMaterial
+        item.material = bodyLineMaterial
         const edges = new EdgesGeometry(item.geometry);
         const line = new LineSegments(edges, bodyLineMaterial);
         edges.rotateX(-90 * Math.PI / 180)
         item.rotation.x = (90 * Math.PI) / 180
         line.position.copy(item.position);
         line.rotation.copy(item.rotation);
-        line.scale.set(0.1,0.1,0.1);
-        line.rotation.x = (90 * Math.PI)/180
+        line.scale.set(0.1, 0.1, 0.1);
+        line.rotation.x = (90 * Math.PI) / 180
         scene.add(line);
         group.add(line)
 
@@ -292,13 +295,13 @@ const loadModels = () => {
   modelLoader.load('/models/range.glb', (glb) => {
     const model = glb.scene
     scene.add(model)
-    model.scale.set(4,4,4)
+    model.scale.set(4, 4, 4)
     model.rotation.x = (150 * Math.PI) / 180
-    model.material=ringMaterial
+    model.material = ringMaterial
     model.traverse((item) => {
       if (item.isMesh) {
-        item.rotateY(Math.PI*90/180)
-        item.rotateX(Math.PI*180/180)
+        item.rotateY(Math.PI * 90 / 180)
+        item.rotateX(Math.PI * 180 / 180)
         item.material = ringMaterial
       }
     })
@@ -311,42 +314,42 @@ const loadModels = () => {
 
 
 //复原视角
-const resetView=()=>{
-  outlinePass.selectedObjects=[]
+const resetView = () => {
+  outlinePass.selectedObjects = []
   noticeCard.value && scene.remove(noticeCard.value)
   animateCamera(new Vector3(cameraPosition.x, cameraPosition.y, cameraPosition.z));
   control.target.set(0, 2, 0)
-  showCard.value=false
-  showScanLine.value=true
+  showCard.value = false
+  showScanLine.value = true
 }
 
-const positionMap={
-  head:{position:new Vector3(0,3,3),name:'Icosphere'},
-  Lungs:{position:new Vector3(0,2.5,3),name:'Linkerlong_Linkerlong_0'},
-  heart:{position:new Vector3(0,2,3),name:'Heart'},
-  Liver:{position:new Vector3(0,1.7,3),name:'gangzhan'},
-  stomach:{position:new Vector3(0,1.5,3),name:'stomach'},
-  Pancreas:{position:new Vector3(0,1.5,3),name:'Spleen_Milt'},
+const positionMap = {
+  head: { position: new Vector3(0, 3, 3), name: 'Icosphere' },
+  Lungs: { position: new Vector3(0, 2.5, 3), name: 'Linkerlong_Linkerlong_0' },
+  heart: { position: new Vector3(0, 2, 3), name: 'Heart' },
+  Liver: { position: new Vector3(0, 1.7, 3), name: 'gangzhan' },
+  stomach: { position: new Vector3(0, 1.5, 3), name: 'stomach' },
+  Pancreas: { position: new Vector3(0, 1.5, 3), name: 'Spleen_Milt' },
 }
 
 //切换动画
-const handleAnimate=(key:keyof typeof positionMap)=>{
+const handleAnimate = (key: keyof typeof positionMap) => {
   resetView()
-  nextTick(()=>{
-    const item=positionMap[key]
-    const p=item.position.clone()
+  nextTick(() => {
+    const item = positionMap[key]
+    const p = item.position.clone()
 
-    control.target.set(0,p.y,0)
+    control.target.set(0, p.y, 0)
     animateCamera(p.clone())
     let obj
-    outlinePass.selectedObjects = rayCasterMeshes.filter(item=>{
-          if(item.name===positionMap[key].name){
-            obj=item
-            return item
-          }
-        }
+    outlinePass.selectedObjects = rayCasterMeshes.filter(item => {
+      if (item.name === positionMap[key].name) {
+        obj = item
+        return item
+      }
+    }
     )
-    showCard.value=true//dom卡片
+    showCard.value = true//dom卡片
     pauseScanLine()
     // setCard(new Vector3(0.15,p.y,p.z-0.5), '测试设备', obj)//场景卡片
   })
@@ -382,11 +385,11 @@ const rayCasterMeshes: Mesh[] = []
 // }
 
 
-const animateCamera=(position:Vector3)=>{
+const animateCamera = (position: Vector3) => {
   new TWEEN.Tween(camera.position)
-      .to(position, 2000)
-      .easing(TWEEN.Easing.Quadratic.Out)
-      .start()
+    .to(position, 2000)
+    .easing(TWEEN.Easing.Quadratic.Out)
+    .start()
 }
 
 const renderId = ref()
@@ -410,7 +413,7 @@ onMounted(() => {
   }
 })
 
-onBeforeUnmount(()=>{
+onBeforeUnmount(() => {
   cancelAnimationFrame(renderId.value)
   renderer.dispose()
   outlinePass.dispose()
@@ -422,45 +425,52 @@ onBeforeUnmount(()=>{
 </script>
 <style>
 .scene-container {
+  -webkit-app-region: no-drag;
   width: 100%;
   height: 100%;
-  position:relative;
+  position: relative;
   overflow: hidden;
 }
-.domCard{
-  position:absolute;
-  left:0;
-  padding:5px;
+
+.domCard {
+  position: absolute;
+  left: 0;
+  padding: 5px;
   background: url('/card-body.png') no-repeat center center / 100% 100%;
 }
-.card{
-  position:absolute;
-  width:100%;
-  height:100%;
-  z-index:10;
+
+.card {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
   pointer-events: none;
 }
-.warning{
+
+.warning {
   color: #00e6ff;
-  border: 2px solid rgba(255,0,0,.5);
+  border: 2px solid rgba(255, 0, 0, .5);
   animation: pulse-border 1s infinite;
   box-sizing: border-box;
   border-radius: 5px;
   font-size: 16px;
   pointer-events: none;
 }
+
 @keyframes pulse-border {
   0% {
-    box-shadow: 0 0 5px rgba(255,0,0,.5);
+    box-shadow: 0 0 5px rgba(255, 0, 0, .5);
     border-color: red;
   }
+
   50% {
     box-shadow: 0 0 20px red;
     border-color: darkred;
   }
+
   100% {
-    box-shadow: 0 0 5px rgba(255,0,0,.5);
-    border-color: rgba(255,0,0,.5);
+    box-shadow: 0 0 5px rgba(255, 0, 0, .5);
+    border-color: rgba(255, 0, 0, .5);
   }
 }
 </style>

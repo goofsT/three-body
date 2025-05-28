@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "background.cjs",
   "scripts": {
+    "start": "electron .",
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
@@ -24,12 +26,13 @@
     "@types/three": "^0.176.0",
     "@vitejs/plugin-vue": "^5.2.3",
     "@vue/tsconfig": "^0.7.0",
+    "electron": "^36.3.1",
     "npm-run-all2": "^7.0.2",
     "prettier": "3.5.3",
     "typescript": "~5.8.0",
     "unocss": "^66.1.2",
     "vite": "^6.2.4",
-    "vite-plugin-vue-devtools": "^7.7.2",
+    "vite-plugin-electron": "^0.29.0",
     "vue-tsc": "^2.2.8"
   }
 }
